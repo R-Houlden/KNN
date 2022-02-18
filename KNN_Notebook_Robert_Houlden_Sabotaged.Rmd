@@ -1,0 +1,117 @@
+---
+title: "Assigment - kNN DIY"
+author:
+  - name author here - Robert Houlden
+  - name reviewer here - Boyer Samuel
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+   html_notebook:
+    toc: true
+    toc_depth: 2
+---
+
+##Insert packages
+```{r}
+library(tidyverse)
+library(googlesheets4)
+library(class)
+library(caret)
+```
+##Insert data frame
+```{r}
+url <- "https://raw.githubusercontent.com/HAN-M3DM-Data-Mining/data-mining-s2y2122-R-Houlden/master/datasets/KNN-hcvdat0.csv"
+rawDF <- read_csv(url)
+```
+
+###Business Understanding###
+##We can use measures of AST & GGT to determine if a patient has hepatits.
+
+#AST = 10-40 (Higher = Liver Issue)
+#GGT = 5-40 (Higher = Liver Issue)
+
+##Data Understanding
+##Get some basic information about the data set
+```{r}
+str(rawDF)
+```
+##615 rows of data and 14 variables
+
+
+##Preparation
+
+#Columns ID, Age, Sex, CHE, CHOL, CREA, ALP, ALB, ATL, BIL, and PROT are not required so they can be removed
+```{r}
+cleanDF <- rawDF[-1]
+head(cleanDF)
+cleanDF <- select(cleanDF, -Age, -Sex, -CHOL, -ALP, -ALT, -PROT, -ALB, -BIL, -CREA, -CHE)
+```
+
+##I don't need Suspect Bloor Donor, Fibrosis, or Cirrhosis. So they are removed
+```{r}
+cleanDF[-c(534:540, 565:615),]
+cleanDF <- cleanDF[-c(534:540, 565:615),]
+```
+
+#I want to predict the Category, either Blood Donor or Hepatitis
+
+```{r}
+cntCateg <- table(cleanDF$Category)
+propCateg <- round(prop.table(cntCateg) * 100 , digits = 1)
+
+cntCateg
+propCateg
+```
+
+##Rename variables so that they are factors
+```{r}
+cleanDF$Category <- factor(cleanDF$Category, levels = c("0=Blood Donor", "1=Hepatitis"), labels = c("", "")) %>% relevel("Blood Donor")
+head(cleanDF, 10)
+```
+
+##Have a closer look at our data
+```{r}
+summary(cleanDF[c("AST","GGT")])
+```
+
+##Make normalize function and test it
+#Test
+```{r}
+normalize <-  {return ((x - min(x)) / (max(x) - min(x)))}
+
+testSet1 <- c(1:5)
+testSet2 <- c(1:5) * 10
+
+cat("testSet1:", testSet1, "\n")
+cat("testSet2:", testSet2, "\n")
+```
+#Implementation of normalize function
+```{r}
+nCols <- dim(cleanDF)[2]
+cleanDF_n <- sapply(2:nCols,
+                    function(x) {
+  normalize(cleanDF[,x])
+}) %>% as.data.frame()
+
+summary(cleanDF_n[c("AST","GGT")])
+```
+##Split data into training and test sets
+```{r}
+trainDF_feat <- cleanDF_n[1:480,  ]
+testDF_feat <- cleanDF_n[481:557,  ]
+```
+##Make training labels
+```{r}
+trainDF_labels <- cleanDF[1:480,  1]
+
+```
+
+##Modelling & Evalutaion
+```{r}
+cleanDF_test_pred <- knn(train = as.matrix(trainDF_feat), test = as.matrix(testDF_feat), cl = as.matrix(trainDF_labels), k = 7)
+head(cleanDF_test_pred)
+```
+##Run confusion matrix for results of KNN
+```{r}
+confusionMatrix(cleanDF_test_pred, testDF_labels[[1]], positive = NULL, dnn = c("Prediction", "True"))
+```
+
